@@ -104,6 +104,13 @@ public class VerticalTabLayout extends ScrollView {
     private int mTabPaddingEnd;
     private int mTabPaddingBottom;
 
+    private int mIndicatorPaddingStart;
+    private int mIndicatorPaddingTop;
+    private int mIndicatorPaddingEnd;
+    private int mIndicatorPaddingBottom;
+
+    private int mIndicatorAnimDuration;
+
     public static int TAB_MODE_FIXED = 10;
     public static int TAB_MODE_SCROLLABLE = 11;
 
@@ -153,6 +160,7 @@ public class VerticalTabLayout extends ScrollView {
         } else if (mIndicatorGravity == INDICATOR_GRAVITY_FILL) {
             mIndicatorGravity = Gravity.FILL;
         }
+        mIndicatorAnimDuration = typedArray.getInt(R.styleable.VerticalTabLayout_anim_duration, 100);
         mTabMargin = (int) typedArray.getDimension(R.styleable.VerticalTabLayout_tab_margin, 0);
         mTabMode = typedArray.getInteger(R.styleable.VerticalTabLayout_tab_mode, TAB_MODE_FIXED);
         int defaultTabHeight = LinearLayout.LayoutParams.WRAP_CONTENT;
@@ -163,6 +171,13 @@ public class VerticalTabLayout extends ScrollView {
         mTabPaddingTop = typedArray.getDimensionPixelSize(R.styleable.VerticalTabLayout_tab_paddingTop, mTabPaddingTop);
         mTabPaddingEnd = typedArray.getDimensionPixelSize(R.styleable.VerticalTabLayout_tab_paddingEnd, mTabPaddingEnd);
         mTabPaddingBottom = typedArray.getDimensionPixelSize(R.styleable.VerticalTabLayout_tab_paddingBottom, mTabPaddingBottom);
+
+        mIndicatorPaddingStart = mIndicatorPaddingEnd = mIndicatorPaddingTop = mIndicatorPaddingBottom = typedArray.getDimensionPixelSize(R.styleable.VerticalTabLayout_indicator_padding, 0);
+        mIndicatorPaddingStart = typedArray.getDimensionPixelSize(R.styleable.VerticalTabLayout_indicator_paddingStart, mIndicatorPaddingStart);
+        mIndicatorPaddingEnd = typedArray.getDimensionPixelSize(R.styleable.VerticalTabLayout_indicator_paddingEnd, mIndicatorPaddingEnd);
+        mIndicatorPaddingTop = typedArray.getDimensionPixelSize(R.styleable.VerticalTabLayout_indicator_paddingTop, mIndicatorPaddingTop);
+        mIndicatorPaddingBottom = typedArray.getDimensionPixelSize(R.styleable.VerticalTabLayout_indicator_paddingBottom, mIndicatorPaddingBottom);
+
         int textColor = typedArray.getColor(R.styleable.VerticalTabLayout_tab_textColor, Color.BLACK);
         int selected = typedArray.getColor(R.styleable.VerticalTabLayout_tab_textSelectedColor, Color.BLACK);
         mTabTextColors = createColorStateList(textColor, selected);
@@ -503,11 +518,11 @@ public class VerticalTabLayout extends ScrollView {
     }
 
     public void setupWithViewPager(@Nullable VerticalViewPager viewPager) {
-        setupWithViewPager(viewPager,null);
+        setupWithViewPager(viewPager, null);
     }
 
-    public void setupWithViewPager(VerticalViewPager viewPager, ViewPagerTabItemCreator creator){
-        this.tabItemCreator=creator;
+    public void setupWithViewPager(VerticalViewPager viewPager, ViewPagerTabItemCreator creator) {
+        this.tabItemCreator = creator;
         if (mViewPager != null && mTabPageChangeListener != null) {
             mViewPager.removeOnPageChangeListener(mTabPageChangeListener);
         }
@@ -553,10 +568,10 @@ public class VerticalTabLayout extends ScrollView {
             final int adapterCount = mPagerAdapter.getCount();
             for (int i = 0; i < adapterCount; i++) {
                 String title = mPagerAdapter.getPageTitle(i) == null ? "tab" + i : mPagerAdapter.getPageTitle(i).toString();
-                if(creator!=null){
+                if (creator != null) {
                     addTab(creator.create(i), false);
-                }else {
-                    addTab(newTab().setText(title),false);
+                } else {
+                    addTab(newTab().setText(title), false);
                 }
             }
             if (mViewPager != null && adapterCount > 0) {
@@ -666,6 +681,7 @@ public class VerticalTabLayout extends ScrollView {
             View childView = getChildAt(index);
             final float targetTop = childView.getTop();
             final float targetBottom = childView.getBottom();
+
             if (mIndicatorTopY == targetTop && mIndicatorBottomY == targetBottom) return;
             if (mIndicatorAnimatorSet != null && mIndicatorAnimatorSet.isRunning()) {
                 mIndicatorAnimatorSet.end();
@@ -676,7 +692,7 @@ public class VerticalTabLayout extends ScrollView {
                     ValueAnimator startAnimate = null;
                     ValueAnimator endAnimate = null;
                     if (direction > 0) {
-                        startAnimate = ValueAnimator.ofFloat(mIndicatorBottomY, targetBottom).setDuration(100);
+                        startAnimate = ValueAnimator.ofFloat(mIndicatorBottomY, targetBottom).setDuration(mIndicatorAnimDuration);
                         startAnimate.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                             @Override
                             public void onAnimationUpdate(ValueAnimator animation) {
@@ -684,7 +700,7 @@ public class VerticalTabLayout extends ScrollView {
                                 invalidate();
                             }
                         });
-                        endAnimate = ValueAnimator.ofFloat(mIndicatorTopY, targetTop).setDuration(100);
+                        endAnimate = ValueAnimator.ofFloat(mIndicatorTopY, targetTop).setDuration(mIndicatorAnimDuration);
                         endAnimate.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                             @Override
                             public void onAnimationUpdate(ValueAnimator animation) {
@@ -693,7 +709,7 @@ public class VerticalTabLayout extends ScrollView {
                             }
                         });
                     } else if (direction < 0) {
-                        startAnimate = ValueAnimator.ofFloat(mIndicatorTopY, targetTop).setDuration(100);
+                        startAnimate = ValueAnimator.ofFloat(mIndicatorTopY, targetTop).setDuration(mIndicatorAnimDuration);
                         startAnimate.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                             @Override
                             public void onAnimationUpdate(ValueAnimator animation) {
@@ -701,7 +717,7 @@ public class VerticalTabLayout extends ScrollView {
                                 invalidate();
                             }
                         });
-                        endAnimate = ValueAnimator.ofFloat(mIndicatorBottomY, targetBottom).setDuration(100);
+                        endAnimate = ValueAnimator.ofFloat(mIndicatorBottomY, targetBottom).setDuration(mIndicatorAnimDuration);
                         endAnimate.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
                             @Override
                             public void onAnimationUpdate(ValueAnimator animation) {
@@ -717,16 +733,17 @@ public class VerticalTabLayout extends ScrollView {
                     }
                 }
             });
+
         }
 
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             mIndicatorPaint.setColor(mColorIndicator);
-            mIndicatorRect.left = mIndicatorX;
-            mIndicatorRect.top = mIndicatorTopY;
-            mIndicatorRect.right = mIndicatorX + mIndicatorWidth;
-            mIndicatorRect.bottom = mIndicatorBottomY;
+            mIndicatorRect.left = mIndicatorX + mIndicatorPaddingStart;
+            mIndicatorRect.top = mIndicatorTopY + mIndicatorPaddingTop;
+            mIndicatorRect.right = mIndicatorX + mIndicatorWidth - mIndicatorPaddingEnd;
+            mIndicatorRect.bottom = mIndicatorBottomY - mIndicatorPaddingBottom;
             if (mIndicatorCorners != 0) {
                 canvas.drawRoundRect(mIndicatorRect, mIndicatorCorners, mIndicatorCorners, mIndicatorPaint);
             } else {

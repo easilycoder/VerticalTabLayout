@@ -8,18 +8,22 @@
 
     <tech.easily.lib.VerticalTabLayout
         android:id="@+id/tabLayout"
-        android:layout_width="50dp"
+        app:anim_duration="0"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        app:indicator_gravity="fill"
-        app:tab_height="45dp"
+        android:layout_gravity="top"
+        app:indicator_color="#fd2951"
+        app:indicator_paddingBottom="26dp"
+        app:indicator_paddingTop="26dp"
         app:tab_mode="scrollable"
-        app:tab_textSelectedColor="#fff" />
+        app:tab_padding="26dp"
+        app:tab_textColor="#000"
+        app:tab_textSelectedColor="#fd2951" />
 
     <View
         android:layout_width="0.5dp"
         android:layout_height="match_parent"
-        android:background="#efefef" />
+        android:background="#d8d8d8" />
 
     <tech.easily.lib.viewpager.VerticalViewPager
         android:id="@+id/viewPager"
