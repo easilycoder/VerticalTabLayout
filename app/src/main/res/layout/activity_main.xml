@@ -6,7 +6,7 @@
     android:background="#fff"
     android:orientation="horizontal">
 
-    <tech.easily.lib.VerticalTabLayout
+    <tech.easily.lib.VerticalTabLayoutWithViewPager2
         android:id="@+id/tabLayout"
         app:anim_duration="0"
         android:layout_width="wrap_content"
@@ -25,8 +25,8 @@
         android:layout_height="match_parent"
         android:background="#d8d8d8" />
 
-    <tech.easily.lib.viewpager.VerticalViewPager
-        android:id="@+id/viewPager"
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager2"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 

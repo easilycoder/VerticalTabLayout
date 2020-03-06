@@ -5,26 +5,12 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
-import android.database.DataSetObserver;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import androidx.annotation.DrawableRes;
-import androidx.annotation.LayoutRes;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.StringRes;
-import com.google.android.material.tabs.TabLayout;
-import androidx.core.util.Pools;
-import androidx.viewpager.widget.PagerAdapter;
-import androidx.core.view.PointerIconCompat;
-import androidx.core.view.ViewCompat;
-import androidx.viewpager.widget.ViewPager;
-import androidx.appcompat.content.res.AppCompatResources;
-import androidx.appcompat.widget.TooltipCompat;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.Gravity;
@@ -39,13 +25,26 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import androidx.annotation.DrawableRes;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.appcompat.widget.TooltipCompat;
+import androidx.core.util.Pools;
+import androidx.core.view.PointerIconCompat;
+import androidx.core.view.ViewCompat;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager.widget.ViewPager;
+import androidx.viewpager2.widget.ViewPager2;
+
+import com.google.android.material.tabs.TabLayout;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
-
-import tech.easily.lib.viewpager.VerticalViewPager;
 
 import static androidx.viewpager.widget.ViewPager.SCROLL_STATE_IDLE;
 import static androidx.viewpager.widget.ViewPager.SCROLL_STATE_SETTLING;
@@ -56,7 +55,7 @@ import static androidx.viewpager.widget.ViewPager.SCROLL_STATE_SETTLING;
  * <p>
  * Created by lemon on 10/01/2018.
  */
-public class VerticalTabLayout extends ScrollView {
+public class VerticalTabLayoutWithViewPager2 extends ScrollView {
 
     public interface OnTabSelectedListener {
 
@@ -114,14 +113,11 @@ public class VerticalTabLayout extends ScrollView {
     public static int TAB_MODE_FIXED = 10;
     public static int TAB_MODE_SCROLLABLE = 11;
 
-    /**
-     * configure for {@link #setupWithViewPager(VerticalViewPager)}
-     */
-    private VerticalViewPager mViewPager;
-    private PagerAdapter mPagerAdapter;
-    private OnTabPageChangeListener mTabPageChangeListener;
+    private ViewPager2 mViewPager2;
+    private RecyclerView.Adapter mPagerAdapter;
+    private ViewPager2.OnPageChangeCallback mTabPageChangeListener;
     private ViewPagerOnVerticalTabSelectedListener currentVpSelectedListener;
-    private DataSetObserver mPagerAdapterObserver;
+    private RecyclerView.AdapterDataObserver mPagerAdapterObserver;
     /**
      * tabLayout properties
      */
@@ -134,15 +130,15 @@ public class VerticalTabLayout extends ScrollView {
     private final Pools.Pool<TabView> mTabViewPool = new Pools.SimplePool<>(12);
 
 
-    public VerticalTabLayout(Context context) {
+    public VerticalTabLayoutWithViewPager2(Context context) {
         this(context, null);
     }
 
-    public VerticalTabLayout(Context context, AttributeSet attrs) {
+    public VerticalTabLayoutWithViewPager2(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public VerticalTabLayout(Context context, AttributeSet attrs, int defStyleAttr) {
+    public VerticalTabLayoutWithViewPager2(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         initStyleConfigure(context, attrs);
     }
@@ -517,65 +513,105 @@ public class VerticalTabLayout extends ScrollView {
         }
     }
 
-    public void setupWithViewPager(@Nullable VerticalViewPager viewPager) {
-        setupWithViewPager(viewPager, null);
+    public void setupWithViewPager2(@Nullable ViewPager2 viewPager2, List<String> titleList) {
+        setupWithViewPager2(viewPager2, titleList, null);
     }
 
-    public void setupWithViewPager(VerticalViewPager viewPager, ViewPagerTabItemCreator creator) {
+    private final WeakReference<VerticalTabLayoutWithViewPager2> mTabLayoutRef = new WeakReference<>(this);
+    private int mScrollState;
+    boolean mUpdateIndicator;
+    private List<String> titleList = new ArrayList<>();
+
+    public void setupWithViewPager2(ViewPager2 viewPager2, List<String> titleList, ViewPagerTabItemCreator creator) {
+        this.titleList = titleList;
         this.tabItemCreator = creator;
-        if (mViewPager != null && mTabPageChangeListener != null) {
-            mViewPager.removeOnPageChangeListener(mTabPageChangeListener);
+        if (mViewPager2 != null && mTabPageChangeListener != null) {
+            mViewPager2.unregisterOnPageChangeCallback(mTabPageChangeListener);
         }
 
-        if (viewPager != null) {
-            final PagerAdapter adapter = viewPager.getAdapter();
-            if (adapter == null) {
+        if (viewPager2 != null) {
+            final RecyclerView.Adapter viewPager2Adapter = viewPager2.getAdapter();
+            if (viewPager2Adapter == null) {
                 throw new IllegalArgumentException("ViewPager does not have a PagerAdapter set");
             }
-            mViewPager = viewPager;
+            mViewPager2 = viewPager2;
             if (mTabPageChangeListener == null) {
-                mTabPageChangeListener = new OnTabPageChangeListener(this);
+                mTabPageChangeListener = new ViewPager2.OnPageChangeCallback() {
+                    @Override
+                    public void onPageScrollStateChanged(int state) {
+                        int mPreviousScrollState = mScrollState;
+                        mScrollState = state;
+                        mUpdateIndicator = !(mScrollState == SCROLL_STATE_SETTLING && mPreviousScrollState == SCROLL_STATE_IDLE);
+                    }
+
+                    @Override
+                    public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+                        final VerticalTabLayoutWithViewPager2 tabLayout = mTabLayoutRef.get();
+                        if (mUpdateIndicator && tabLayout != null) {
+                            tabLayout.setScrollPosition(position, positionOffset);
+                        }
+                    }
+
+                    @Override
+                    public void onPageSelected(int position) {
+                        final VerticalTabLayoutWithViewPager2 tabLayout = mTabLayoutRef.get();
+                        if (tabLayout != null && tabLayout.getSelectedTabPosition() != position && position < tabLayout.getTabCount()) {
+                            tabLayout.selectTab(tabLayout.getTabAt(position), !mUpdateIndicator);
+                        }
+                    }
+                };
             }
-            viewPager.addOnPageChangeListener(mTabPageChangeListener);
+            viewPager2.registerOnPageChangeCallback(mTabPageChangeListener);
             if (currentVpSelectedListener == null) {
-                currentVpSelectedListener = new ViewPagerOnVerticalTabSelectedListener(viewPager);
+                currentVpSelectedListener = new ViewPagerOnVerticalTabSelectedListener(viewPager2);
             }
             addOnTabSelectedListener(currentVpSelectedListener);
-            setPagerAdapter(adapter);
+            setPagerAdapter(viewPager2Adapter);
         } else {
-            mViewPager = null;
+            mViewPager2 = null;
             setPagerAdapter(null);
         }
         populateFromPagerAdapter(creator);
     }
 
-    private void setPagerAdapter(@Nullable final PagerAdapter adapter) {
+    private void setPagerAdapter(@Nullable final RecyclerView.Adapter viewPager2Adapter) {
         if (mPagerAdapter != null && mPagerAdapterObserver != null) {
-            mPagerAdapter.unregisterDataSetObserver(mPagerAdapterObserver);
+            mPagerAdapter.unregisterAdapterDataObserver(mPagerAdapterObserver);
         }
-        mPagerAdapter = adapter;
-        if (adapter != null) {
+        mPagerAdapter = viewPager2Adapter;
+        if (viewPager2Adapter != null) {
             if (mPagerAdapterObserver == null) {
-                mPagerAdapterObserver = new PagerAdapterObserver();
+                mPagerAdapterObserver = new RecyclerView.AdapterDataObserver() {
+                    @Override
+                    public void onChanged() {
+                        populateFromPagerAdapter(tabItemCreator);
+                    }
+
+                    @Override
+                    public void onItemRangeRemoved(int positionStart, int itemCount) {
+                        populateFromPagerAdapter(tabItemCreator);
+                    }
+                };
             }
-            adapter.registerDataSetObserver(mPagerAdapterObserver);
+            viewPager2Adapter.registerAdapterDataObserver(mPagerAdapterObserver);
         }
     }
+
 
     private void populateFromPagerAdapter(ViewPagerTabItemCreator creator) {
         removeAllTabs();
         if (mPagerAdapter != null) {
-            final int adapterCount = mPagerAdapter.getCount();
+            final int adapterCount = mPagerAdapter.getItemCount();
             for (int i = 0; i < adapterCount; i++) {
-                String title = mPagerAdapter.getPageTitle(i) == null ? "tab" + i : mPagerAdapter.getPageTitle(i).toString();
+                String title = titleList.get(i) == null ? "tab" + i : titleList.get(i);
                 if (creator != null) {
                     addTab(creator.create(i), false);
                 } else {
                     addTab(newTab().setText(title), false);
                 }
             }
-            if (mViewPager != null && adapterCount > 0) {
-                final int curItem = mViewPager.getCurrentItem();
+            if (mViewPager2 != null && adapterCount > 0) {
+                final int curItem = mViewPager2.getCurrentItem();
                 if (curItem != getSelectedTabPosition() && curItem < getTabCount()) {
                     selectTab(getTabAt(curItem));
                 }
@@ -756,9 +792,9 @@ public class VerticalTabLayout extends ScrollView {
     /**
      * modify from {@link TabLayout.Tab}
      * <p>
-     * {@link VerticalTabLayout}的子单元
-     * 通过{@link VerticalTabLayout#addTab(VerticalTab)}添加item
-     * 通过{@link VerticalTabLayout#newTab()}构建实例
+     * {@link VerticalTabLayoutWithViewPager2}的子单元
+     * 通过{@link VerticalTabLayoutWithViewPager2#addTab(VerticalTab)}添加item
+     * 通过{@link VerticalTabLayoutWithViewPager2#newTab()}构建实例
      */
     public static final class VerticalTab {
 
@@ -772,7 +808,7 @@ public class VerticalTabLayout extends ScrollView {
         private View mCustomView;
         private OnCustomTabViewRenderListener renderListener;
 
-        VerticalTabLayout mParent;
+        VerticalTabLayoutWithViewPager2 mParent;
         TabView mView;
 
         VerticalTab() {
@@ -1086,75 +1122,22 @@ public class VerticalTabLayout extends ScrollView {
     }
 
     /**
-     * {@link ViewPager}和{@link VerticalTabLayout}的联动
-     * 监听{@link ViewPager}的变化，更新{@link VerticalTabLayout}
-     */
-    private static class OnTabPageChangeListener implements ViewPager.OnPageChangeListener {
-        private int mPreviousScrollState;
-        private final WeakReference<VerticalTabLayout> mTabLayoutRef;
-        private int mScrollState;
-        boolean mUpdateIndicator;
-
-        public OnTabPageChangeListener(VerticalTabLayout tabLayout) {
-            mTabLayoutRef = new WeakReference<>(tabLayout);
-        }
-
-        @Override
-        public void onPageScrollStateChanged(int state) {
-            mPreviousScrollState = mScrollState;
-            mScrollState = state;
-            mUpdateIndicator = !(mScrollState == SCROLL_STATE_SETTLING && mPreviousScrollState == SCROLL_STATE_IDLE);
-        }
-
-        @Override
-        public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
-            final VerticalTabLayout tabLayout = mTabLayoutRef.get();
-            if (mUpdateIndicator && tabLayout != null) {
-                tabLayout.setScrollPosition(position, positionOffset);
-            }
-        }
-
-        @Override
-        public void onPageSelected(int position) {
-            final VerticalTabLayout tabLayout = mTabLayoutRef.get();
-            if (tabLayout != null && tabLayout.getSelectedTabPosition() != position && position < tabLayout.getTabCount()) {
-                tabLayout.selectTab(tabLayout.getTabAt(position), !mUpdateIndicator);
-            }
-        }
-    }
-
-    /**
-     * 监听{@link ViewPager}的数据源{@link PagerAdapter}的变化
-     */
-    private class PagerAdapterObserver extends DataSetObserver {
-        @Override
-        public void onChanged() {
-            populateFromPagerAdapter(tabItemCreator);
-        }
-
-        @Override
-        public void onInvalidated() {
-            populateFromPagerAdapter(tabItemCreator);
-        }
-    }
-
-    /**
-     * {@link ViewPager}和{@link VerticalTabLayout}的联动
-     * 监听{@link VerticalTabLayout}的变化，更新{@link ViewPager}
+     * {@link ViewPager}和{@link VerticalTabLayoutWithViewPager2}的联动
+     * 监听{@link VerticalTabLayoutWithViewPager2}的变化，更新{@link ViewPager}
      */
     public static class ViewPagerOnVerticalTabSelectedListener implements OnTabSelectedListener {
 
-        private final WeakReference<VerticalViewPager> viewPagerRef;
+        private final WeakReference<ViewPager2> viewPagerRef;
 
-        public ViewPagerOnVerticalTabSelectedListener(VerticalViewPager viewPager) {
+        public ViewPagerOnVerticalTabSelectedListener(ViewPager2 viewPager) {
             this.viewPagerRef = new WeakReference<>(viewPager);
         }
 
         @Override
         public void onTabSelected(VerticalTab tab) {
-            VerticalViewPager viewPager = viewPagerRef.get();
-            if (viewPager != null && viewPager.getAdapter().getCount() >= tab.getPosition()) {
-                viewPager.setCurrentItem(tab.getPosition());
+            ViewPager2 viewPager2 = viewPagerRef.get();
+            if (viewPager2 != null && viewPager2.getAdapter().getItemCount() >= tab.getPosition()) {
+                viewPager2.setCurrentItem(tab.getPosition(), false);
             }
         }
 
